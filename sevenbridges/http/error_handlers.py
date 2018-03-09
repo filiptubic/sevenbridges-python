@@ -5,6 +5,7 @@ import six
 from requests.exceptions import HTTPError
 from requests.packages.urllib3.exceptions import HTTPError as UrlLibHTTPError
 
+from sevenbridges.errors import SbgError
 from sevenbridges.compat import JSONDecodeError
 from sevenbridges.decorators import retry_on_excs
 
@@ -25,7 +26,12 @@ def rate_limit_sleeper(api, response):
         sleep = int(remaining_time) - int(time.time())
         logger.warning('Rate limit reached! Waiting for [%s]s', sleep)
         time.sleep(sleep + 5)
-        response = api.session.send(response.request)
+        request = response.request
+        try:
+            response = api.session.send(request)
+        except SbgError:
+            api.regenerate_session()
+            response = api.session.send(request)
     return response
 
 
@@ -46,7 +52,12 @@ def maintenance_sleeper(api, response, sleep=300):
                 logger.warning('API Maintenance in progress!'
                                ' Waiting for [%s]s', sleep)
                 time.sleep(sleep)
-                response = api.session.send(response.request)
+            request = response.request
+            try:
+                response = api.session.send(request)
+            except SbgError:
+                api.regenerate_session()
+                response = api.session.send(request)
             else:
                 return response
         else:
@@ -67,5 +78,10 @@ def general_error_sleeper(api, response, sleep=300):
         logger.warning('Caught [%s] status code! Waiting for [%s]s',
                        response.status_code, sleep)
         time.sleep(sleep)
-        response = api.session.send(response.request)
+        request = response.request
+        try:
+            response = api.session.send(request)
+        except SbgError:
+            api.regenerate_session()
+            response = api.session.send(request)
     return response
