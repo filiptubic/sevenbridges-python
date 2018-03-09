@@ -129,6 +129,7 @@ class HttpClient(object):
                     self.error_handlers.append(handler)
 
     def regenerate_session(self):
+        logger.info('Regenerating client session.')
         self._session = generate_session(proxies=self._session.proxies)
 
     @property
