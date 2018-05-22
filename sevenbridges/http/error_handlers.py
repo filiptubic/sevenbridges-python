@@ -3,6 +3,8 @@ import time
 
 import six
 from requests.exceptions import HTTPError
+
+# noinspection PyUnresolvedReferences
 from requests.packages.urllib3.exceptions import HTTPError as UrlLibHTTPError
 
 from sevenbridges.errors import SbgError
@@ -28,6 +30,7 @@ def rate_limit_sleeper(api, response):
         time.sleep(sleep + 5)
         request = response.request
         try:
+            logger.info('Retrying request after sleep')
             response = api.session.send(request)
         except SbgError:
             api.regenerate_session()

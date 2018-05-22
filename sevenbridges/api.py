@@ -44,7 +44,8 @@ class Api(HttpClient):
 
     def __init__(self, url=None, token=None, oauth_token=None, config=None,
                  timeout=None, download_max_workers=16, upload_max_workers=16,
-                 proxies=None, error_handlers=None, advance_access=False):
+                 proxies=None, error_handlers=None, advance_access=False,
+                 no_session=False):
         """
         Initializes api object.
 
@@ -63,7 +64,7 @@ class Api(HttpClient):
         super(Api, self).__init__(
             url=url, token=token, oauth_token=oauth_token, config=config,
             timeout=timeout, proxies=proxies, error_handlers=error_handlers,
-            advance_access=advance_access
+            advance_access=advance_access, no_session=no_session
         )
 
         self.download_pool = ThreadPoolExecutor(

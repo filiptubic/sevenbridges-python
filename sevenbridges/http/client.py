@@ -67,7 +67,7 @@ class HttpClient(object):
 
     def __init__(self, url=None, token=None, oauth_token=None, config=None,
                  timeout=None, proxies=None, error_handlers=None,
-                 advance_access=False):
+                 advance_access=False, no_session=False):
 
         if (url, token, config) == (None, None, None):
             url, token, proxies, advance_access = config_vars(
@@ -92,6 +92,7 @@ class HttpClient(object):
                            ' Configuration may contain errors, '
                            'or you forgot to pass the url param.')
 
+        self.no_session = no_session
         self.url = url.rstrip('/')
         self._session = generate_session(proxies)
         self.timeout = timeout
@@ -134,6 +135,10 @@ class HttpClient(object):
 
     @property
     def session(self):
+        if self.no_session:
+            s = requests.session()
+            s.proxies = self._session.proxies
+            return s
         return self._session
 
     @property
@@ -195,15 +200,28 @@ class HttpClient(object):
         if not stream:
             d.update({'data': data})
             logger.debug("Request %s", str(d), extra=d)
-            response = self._session.request(
-                verb, url, params=params, data=json.dumps(data),
-                headers=headers, timeout=self.timeout, stream=stream
-            )
+            if self.no_session:
+                response = requests.request(
+                    verb, url, params=params, data=json.dumps(data),
+                    headers=headers, timeout=self.timeout, stream=stream
+                )
+            else:
+                response = self.session.request(
+                    verb, url, params=params, data=json.dumps(data),
+                    headers=headers, timeout=self.timeout, stream=stream
+                )
         else:
             logger.debug('Stream Request', extra=d)
-            response = self._session.request(
-                verb, url, params=params, stream=stream, allow_redirects=True,
-            )
+            if self.no_session:
+                response = requests.request(
+                    verb, url, params=params, stream=stream,
+                    allow_redirects=True,
+                )
+            else:
+                response = self.session.request(
+                    verb, url, params=params, stream=stream,
+                    allow_redirects=True,
+                )
         if self.error_handlers:
             for error_handler in self.error_handlers:
                 response = error_handler(self, response)
