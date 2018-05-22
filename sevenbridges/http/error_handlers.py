@@ -32,7 +32,8 @@ def rate_limit_sleeper(api, response):
         try:
             logger.info('Retrying request after sleep')
             response = api.session.send(request)
-        except SbgError:
+        except Exception as e:
+            logger.warning('Error occured in sleeper', exc_info=e)
             api.regenerate_session()
             response = api.session.send(request)
     return response
