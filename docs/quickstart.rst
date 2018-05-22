@@ -14,8 +14,7 @@ Authentication and Configuration
 In order to authenticate with the API, you should pass the following items to sevenbridges-python:
 
 (a) Your authentication token
-(b) The API endpoint you will be interacting with. This is either the endpoint for the Seven Bridges Platform or 
-for the Seven Bridges Cancer Genomics Cloud (CGC) or for CAVATICA.
+(b) The API endpoint you will be interacting with. This is either the endpoint for the Seven Bridges Platform or for the Seven Bridges Cancer Genomics Cloud (CGC) or for CAVATICA.
 
 You can find your authentication token on the respective pages:
 
@@ -455,6 +454,100 @@ Other project methods include:
 8. List apps from the project - ``project.get_apps()``
 9. List tasks from the project - ``project.get_tasks()``
 
+
+Managing datasets
+-----------------
+
+The Cavatica Datasets API functionality is an advance access feature which
+allows you to manage datasets and their members using dedicated API calls.
+
+The following operations are supported:
+
+    - ``query()`` - Query all datasets
+    - ``get_owned_by()`` - Get all datasets owned by a provided user
+    - ``get()`` - Get dataset with the provided id
+    - ``save()`` - Save changes to a dataset
+    - ``delete()`` - Delete dataset
+    - ``get_members()`` - Get all members of a dataset
+    - ``get_member()`` - Get details on a member of a dataset
+    - ``add_member()`` - Add a member to a dataset
+    - ``remove_member()`` - Remove member from a dataset
+
+Dataset properties
+~~~~~~~~~~~~~~~~~~
+
+Each dataset has the following available properties:
+
+``href`` - The URL of the dataset on the API server.
+
+``id`` - Dataset identifier.
+
+``name`` - Dataset name.
+
+``description`` - Dataset description.
+
+
+Member permissions
+~~~~~~~~~~~~~~~~~~
+
+Dataset permissions can be accessed and edited directly on the member object.
+
+Examples
+~~~~~~~~
+
+.. code:: python
+
+    # List all public datasets
+    datasets = api.datasets.query(visibility='public')
+
+    # List all datasets owned by user
+    datasets = api.datasets.query()
+
+    # List datasets by owner
+    datasets_by_owner = api.datasets.get_owned_by('dataset_owner')
+
+    # Get details of a dataset
+    dataset = api.datasets.get('dataset_owner/dataset-name')
+
+    # List members of a dataset
+    members = dataset.get_members()
+
+    # Get details of a dataset member
+    member = dataset.get_member('dataset_member')
+
+    # Modify a dataset member's permissions
+    member.permissions['execute'] = False
+    member.save()
+
+    # Get a dataset member's permissions
+    permissions = member.permissions
+
+    # List dataset files
+    files = api.files.query(dataset=dataset)
+
+    # Edit a dataset
+    dataset.description = 'A new description'
+    dataset.save()
+
+    # Remove a dataset member
+    dataset.remove_member(member=member)
+
+    # Add a dataset member
+    added_member = dataset.add_member(
+        username='new_member',
+        permissions={
+            "write": True,
+            "read": True,
+            "copy": False,
+            "execute": True,
+            "admin": False
+        }
+    )
+
+    # Delete a dataset
+    dataset.delete()
+
+
 Manage billing
 --------------
 
@@ -779,6 +872,7 @@ Volumes have the following methods:
 -  Add a member to the project - ``add_member()``
 -  Add a team member to the project - ``add_member_team()``
 -  Add a division member to the project - ``add_member_division()``
+-  List files that belong to a volume - ``list()``
 
 
 See the examples below for information on the arguments these methods take:
@@ -789,18 +883,46 @@ Examples
 .. code:: python
 
     # Create a new volume based on AWS S3 for importing files
-    volume_import = api.volumes.create_s3_volume(name='my_input_volume', bucket='my_bucket',access_key_id='AKIAIOSFODNN7EXAMPLE',secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',access_mode='RO')
+    volume_import = api.volumes.create_s3_volume(
+        name='my_input_volume',
+        bucket='my_bucket',
+        access_key_id='AKIAIOSFODNN7EXAMPLE',
+        secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+        access_mode='RO'
+    )
 
     # Create a new volume based on AWS S3 for exporting files
-    volume_export = api.volumes.create_s3_volume(name='my_output_volume', bucket='my_bucket', access_key_id='AKIAIOSFODNN7EXAMPLE',secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',access_mode='RW')
+    volume_export = api.volumes.create_s3_volume(
+        name='my_output_volume',
+        bucket='my_bucket',
+        access_key_id='AKIAIOSFODNN7EXAMPLE',
+        secret_access_key = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+        access_mode='RW'
+    )
+
     # List all volumes available
     volumes = api.volumes.query()
-     
+
+    # List all files in volume
+    file_list = volume.list()
+
+    # The previous call only returns the first page of results, retrieving all
+    # files in a volume root directory is done by using 'all'. This does not
+    # include files in subdirectories
+    for volume_file in volume.list().all():
+        print(volume_file)
+
+    # Subdirectories are stored in prefixes
+    prefixes = file_list.prefixes
+
+    # Files in first subdirectory
+    prefix = prefixes[0].prefix
+    file_list_sub = volume.list(prefix=prefix)
 
 Import properties
 ~~~~~~~~~~~~~~~~~
 
-When you import a file from a volume into a project on the Platform,  you are importing a file from your cloud storage provider (Amazon Web Services or Google Cloud Storage) via the volume onto the Platform.
+When you import a file from a volume into a project on the Platform, you are importing a file from your cloud storage provider (Amazon Web Services or Google Cloud Storage) via the volume onto the Platform.
 
 If successful, an alias will be created on the Platform. Aliases appear as files on the Platform and can be copied, executed, and modified as such. They refer back to the respective file on the given volume.
 
@@ -860,11 +982,20 @@ Examples
 Export properties
 ~~~~~~~~~~~~~~~~~
 
-When you export a file from a project on the Platform into a volume, you are essentially writing to your cloud storage bucket on Amazon Web Services or Google Cloud Storage via the volume.
+When you export a file from a project on the Platform into a volume, you are essentially writing to 
+your cloud storage bucket on Amazon Web Services or Google Cloud Storage via the volume.
 
-Note that the file selected for export must not be a public file or an alias. Aliases are objects stored in your cloud storage bucket which have been made available on the Platform.
+Note that the file selected for export must not be a public file or an alias. Aliases are objects stored 
+in your cloud storage bucket which have been made available on the Platform.
 
-The volume you are exporting to must be configured for read-write access. To do this, set the ``access_mode`` parameter to ``RW`` when creating or modifying a volume. Learn more about this from our `Knowledge Center <http://docs.sevenbridges.com/docs/volumes#section-access-mode>`_.
+The volume you are exporting to must be configured for read-write access. To do this, set the ``access_mode`` 
+parameter to ``RW`` when creating or modifying a volume. Learn more about this from 
+our `Knowledge Center <http://docs.sevenbridges.com/docs/volumes#section-access-mode>`_.
+
+If an export command is successful, the original project file will become an alias to the newly exported object 
+on the volume. The source file will be deleted from the Platform and, if no more copies of this file exist, 
+it will no longer count towards your total storage price on the Platform. Once you export a file from the Platform 
+to a volume, it is no longer part of the storage on the Platform and cannot be exported again.
 
 Each export has the following properties:
 
@@ -1109,3 +1240,154 @@ Batch task
                                 inputs=inputs, batch_input=batch_input, batch_by=batch_by, run=True)
     except SbError:
         print('I was unable to run a batch task.')
+
+
+Managing bulk operations
+------------------------
+
+Bulk operations are supported for:
+
+    - Files
+    - Import jobs
+    - Export jobs
+
+All bulk operations return a list of objects that contain a resource or an
+error. The state of any object can be checked with the ``valid`` property. If
+``valid`` is set to True, ``resource`` is available, otherwise ``error`` is
+populated. Example:
+
+.. code:: python
+
+    response = api.files.bulk_get(files=files)
+    for record in response:
+        if record.valid:
+            print(record.resource)
+        else:
+            print(record.error)
+
+Files
+~~~~~
+
+The following operations are supported:
+
+    - ``bulk_get()`` - Retrieves multiple files.
+    - ``bulk_edit()`` - Edits multiple files.
+    - ``bulk_update()`` - Updates multiple files.
+    - ``bulk_delete()`` - Deletes multiple files.
+
+Retrieval and deletion are done by passing files (or file ids) in a list:
+
+.. code:: python
+
+    # Retrieve files
+    files = ['<FILE_ID>', '<FILE_ID>', '<FILE_ID>']
+    response = api.files.bulk_get(files=files)
+
+    # Delete files
+    files = [file1, file2, file3]
+    response = api.files.bulk_delete(files=files)
+
+Editing and updating are done on file objects:
+
+.. code:: python
+
+    # Edit files
+    files = [edited_file1, edited_file2, edited_file3]
+    response = api.files.bulk_edit(files=files)
+
+    # Update files
+    files = [updated_file1, updated_file2, updated_file3]
+    response = api.files.bulk_update(files=files)
+
+Properties that can be edited are ``name``, ``tags`` and ``metadata``.
+
+Imports
+~~~~~~~
+
+The following operations are supported:
+
+    - ``bulk_get()`` - Retrieves multiple import jobs.
+    - ``bulk_submit()`` - Submits multiple import jobs.
+
+Bulk retrieval, similarly to api.files.bulk_get(), requires a list of jobs:
+
+.. code:: python
+
+    # Retrieve imports
+    imports = ['<IMPORT_ID>', '<IMPORT_ID>', '<IMPORT_ID>']
+    response = api.imports.bulk_get(imports=imports)
+
+Submitting in bulk can be done with a list of dictionaries with the required
+data for each job, for example:
+
+.. code:: python
+
+    volume = api.volumes.get('user/volume')
+    project = api.project.get('user/project')
+
+    # Submit import jobs
+    imports = [
+        {
+            'volume': volume,
+            'location': '/data/example_file.txt',
+            'project': project,
+            'name': 'example_file.txt',
+            'overwrite': False
+        },
+        {
+            'volume': volume,
+            'location': '/data/example_file_2.txt',
+            'project': project,
+            'name': 'example_file_2.txt',
+            'overwrite': True
+        }
+    ]
+    response = api.imports.bulk_submit(imports=imports)
+
+Exports
+~~~~~~~
+
+The following operations are supported:
+
+    - ``bulk_get()`` - Retrieves multiple export jobs.
+    - ``bulk_submit()`` - Submits multiple export jobs.
+
+Bulk retrieval, similarly to api.files.bulk_get(), requires a list of jobs:
+
+
+.. code:: python
+
+    # Retrieve exports
+    exports = ['<EXPORT_ID>', '<EXPORT_ID>', '<EXPORT_ID>']
+    response = api.exports.bulk_get(exports=exports)
+
+
+Submitting in bulk can be done with a list of dictionaries with the required
+data for each job, for example:
+
+.. code:: python
+
+    volume = api.volumes.get('user/volume')
+
+    # Submit export jobs
+    exports = [
+        {
+            'file': 'example_file.txt',
+            'volume': volume,
+            'location': '/data/example_file.txt',
+            'properties': {
+                'some_property': 'value'
+            }
+            'overwrite': True
+        },
+        {
+            'file': 'example_file_2.txt',
+            'volume': volume,
+            'location': '/data/example_file_2.txt',
+            'properties': {
+                'some_property_2': 'value_2'
+            },
+            'overwrite': False
+        },
+    ]
+    response = api.exports.bulk_submit(exports=exports)

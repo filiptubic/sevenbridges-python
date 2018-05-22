@@ -134,7 +134,7 @@ Explicit initialization
 .. code:: python
 
     import sevenbridges as sbg
-    api_config = sbg.Config(url='https://api.sbgenomics.com/v2', token='<TOKEN_HERE>')
+    api = sbg.Api(url='https://api.sbgenomics.com/v2', token='<TOKEN_HERE>')
 
 Initialization via environment variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -158,6 +158,7 @@ Initialization via config file
 
     import sevenbridges as sbg
     config = sbg.Config(profile='cgc')
+    api = sbg.Api(config=config)
 
 Notes on config file format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -238,6 +239,6 @@ sign the `Seven Bridges Contributor Agreement <https://secure.na1.echosign.com/p
 Copyright
 ---------
 
-Copyright (c) 2016-2017 Seven Bridges Genomics, Inc. All rights reserved.
+Copyright (c) 2016-2018 Seven Bridges Genomics, Inc. All rights reserved.
 
 This project is open-source via the `Apache 2.0 License <http://www.apache.org/licenses/LICENSE-2.0>`_.

@@ -1,12 +1,13 @@
 """
 sevenbridges-python
 ~~~~~~~~~~~~~~~~~~~
-:copyright: 2016 Seven Bridges Genomics Inc.
+:copyright: 2018 Seven Bridges Genomics Inc.
 :license: Apache 2.0
 """
+import ssl
 import logging
 
-__version__ = "0.10.0"
+__version__ = "0.12.1"
 
 from sevenbridges.api import Api
 from sevenbridges.config import Config
@@ -19,6 +20,8 @@ from sevenbridges.models.endpoints import Endpoints
 from sevenbridges.models.project import Project
 from sevenbridges.models.task import Task
 from sevenbridges.models.app import App
+from sevenbridges.models.dataset import Dataset
+from sevenbridges.models.bulk import BulkRecord
 
 from sevenbridges.models.member import Member, Permissions
 from sevenbridges.models.file import File
@@ -45,7 +48,8 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__ = [
     'Api', 'Config', 'Invoice', 'BillingGroup', 'BillingGroupBreakdown',
     'User', 'Endpoints', 'Project', 'Task', 'App', 'Member', 'Permissions',
-    'File', 'Export', 'Import', 'Volume', 'Marker', 'Division',
+    'File', 'Export', 'Import', 'Volume', 'Marker', 'Division', 'Dataset',
+    'BulkRecord',
     # Enums
     'TransferState',
     'VolumeType', 'VolumeAccessMode',
@@ -57,3 +61,10 @@ __all__ = [
     'ServerError', 'ServiceUnavailable', 'MethodNotAllowed', 'RequestTimeout',
     'LocalFileAlreadyExists', 'ExecutionDetailsInvalidTaskType'
 ]
+
+required_ssl_version = (1, 0, 1)
+if ssl.OPENSSL_VERSION_INFO < required_ssl_version:
+    raise SbgError(
+        'OpenSSL version included in this python version must be '
+        'at least 1.0.1 or greater. Please update your environment build.'
+    )

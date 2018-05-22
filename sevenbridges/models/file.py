@@ -7,13 +7,16 @@ import six
 
 from sevenbridges.decorators import inplace_reload
 from sevenbridges.errors import (
-    ResourceNotModified, SbgError, LocalFileAlreadyExists
+    SbgError,
+    ResourceNotModified,
+    LocalFileAlreadyExists
 )
 from sevenbridges.meta.fields import (
     HrefField, StringField, IntegerField, CompoundField, DateTimeField,
     BasicListField)
 from sevenbridges.meta.resource import Resource
 from sevenbridges.meta.transformer import Transform
+from sevenbridges.models.bulk import BulkRecord
 from sevenbridges.models.compound.files.download_info import DownloadInfo
 from sevenbridges.models.compound.files.file_origin import FileOrigin
 from sevenbridges.models.compound.files.file_storage import FileStorage
@@ -36,7 +39,12 @@ class File(Resource):
         'copy': '/files/{id}/actions/copy',
         'download_info': '/files/{id}/download_info',
         'metadata': '/files/{id}/metadata',
-        'tags': '/files/{id}/tags'
+        'tags': '/files/{id}/tags',
+
+        'bulk_get': '/bulk/files/get',
+        'bulk_delete': '/bulk/files/delete',
+        'bulk_update': '/bulk/files/update',
+        'bulk_edit': '/bulk/files/edit',
     }
 
     href = HrefField()
@@ -65,10 +73,10 @@ class File(Resource):
         return not self.__eq__(other)
 
     @classmethod
-    def query(cls, project, names=None, metadata=None, origin=None, tags=None,
-              offset=None, limit=None, api=None):
+    def query(cls, project=None, names=None, metadata=None, origin=None,
+              tags=None, offset=None, limit=None, dataset=None, api=None):
         """
-        Query ( List ) projects
+        Query ( List ) files, requires project or dataset
         :param project: Project id
         :param names: Name list
         :param metadata: Metadata query dict
@@ -76,13 +84,24 @@ class File(Resource):
         :param tags: List of tags to filter on
         :param offset: Pagination offset
         :param limit: Pagination limit
+        :param dataset: Dataset id
         :param api: Api instance.
         :return: Collection object.
         """
         api = api or cls._API
 
-        project = Transform.to_project(project)
         query_params = {}
+
+        if project:
+            project = Transform.to_project(project)
+            query_params['project'] = project
+
+        if dataset:
+            dataset = Transform.to_dataset(dataset)
+            query_params['dataset'] = dataset
+
+        if not project and not dataset:
+            raise SbgError('Project or dataset must be provided!')
 
         if names is not None and isinstance(names, list):
             if len(names) == 0:
@@ -107,7 +126,7 @@ class File(Resource):
         query_params.update(origin_params)
 
         return super(File, cls)._query(
-            api=api, url=cls._URL['query'], project=project, offset=offset,
+            api=api, url=cls._URL['query'], offset=offset,
             limit=limit, fields='_all', **query_params
         )
 
@@ -331,3 +350,98 @@ class File(Resource):
             self.download(wait=True, path=tmpfile.name, overwrite=overwrite)
             with io.open(tmpfile.name, 'r', encoding=encoding) as fp:
                 return fp.read()
+
+    @classmethod
+    def bulk_get(cls, files, api=None):
+        """
+        Retrieve files with specified ids in bulk
+        :param files: Files to be retrieved.
+        :param api: Api instance.
+        :return: List of FileBulkRecord objects.
+        """
+        api = api or cls._API
+        file_ids = [Transform.to_file(file_) for file_ in files]
+        data = {'file_ids': file_ids}
+
+        logger.info('Getting files in bulk.')
+        response = api.post(url=cls._URL['bulk_get'], data=data)
+        return FileBulkRecord.parse_records(response=response, api=api)
+
+    @classmethod
+    def bulk_delete(cls, files, api=None):
+        """
+        Delete files with specified ids in bulk
+        :param files: Files to be deleted.
+        :param api: Api instance.
+        :return: List of FileBulkRecord objects.
+        """
+        api = api or cls._API
+        file_ids = [Transform.to_file(file_) for file_ in files]
+        data = {'file_ids': file_ids}
+
+        logger.info('Deleting files in bulk.')
+        response = api.post(url=cls._URL['bulk_delete'], data=data)
+        return FileBulkRecord.parse_records(response=response, api=api)
+
+    @classmethod
+    def bulk_update(cls, files, api=None):
+        """
+        Update files with specified ids in bulk
+        :param files: Files to be updated.
+        :param api: Api instance.
+        :return: List of FileBulkRecord objects.
+        """
+        if not files:
+            raise SbgError('Files are required.')
+
+        api = api or cls._API
+        data = {
+            'items': [
+                {
+                    'id': file_.id,
+                    'name': file_.name,
+                    'tags': file_.tags,
+                    'metadata': file_.metadata,
+                }
+                for file_ in files
+            ]
+        }
+
+        logger.info('Updating files in bulk.')
+        response = api.post(url=cls._URL['bulk_update'], data=data)
+        return FileBulkRecord.parse_records(response=response, api=api)
+
+    @classmethod
+    def bulk_edit(cls, files, api=None):
+        """
+        Edit files with specified ids in bulk
+        :param files: Files to be updated.
+        :param api: Api instance.
+        :return: List of FileBulkRecord objects.
+        """
+        if not files:
+            raise SbgError('Files are required.')
+
+        api = api or cls._API
+        data = {
+            'items': [
+                {
+                    'id': file_.id,
+                    'name': file_.name,
+                    'tags': file_.tags,
+                    'metadata': file_.metadata,
+                }
+                for file_ in files
+            ]
+        }
+
+        logger.info('Editing files in bulk.')
+        response = api.post(url=cls._URL['bulk_edit'], data=data)
+        return FileBulkRecord.parse_records(response=response, api=api)
+
+
+class FileBulkRecord(BulkRecord):
+    resource = CompoundField(cls=File)
+
+    def __str__(self):
+        return six.text_type('<FileBulkRecord>')
