@@ -33,8 +33,8 @@ def rate_limit_sleeper(api, response):
             logger.info('Retrying request after sleep')
             response = api.session.send(request)
         except Exception as e:
-            logger.warning('Error occured in sleeper', exc_info=e)
-            api.regenerate_session()
+            logger.warning('Error occurred in rate limit sleeper', exc_info=e)
+            api.regenerate_sessions()
             response = api.session.send(request)
     return response
 
@@ -59,9 +59,13 @@ def maintenance_sleeper(api, response, sleep=300):
             request = response.request
             try:
                 response = api.session.send(request)
-            except SbgError:
-                api.regenerate_session()
+            except Exception as e:
+                logger.warning(
+                    'Error occurred in maintenance sleeper', exc_info=e
+                )
+                api.regenerate_sessions()
                 response = api.session.send(request)
+
             else:
                 return response
         else:
@@ -85,7 +89,8 @@ def general_error_sleeper(api, response, sleep=300):
         request = response.request
         try:
             response = api.session.send(request)
-        except SbgError:
-            api.regenerate_session()
+        except Exception as e:
+            logger.warning('Error occurred in error sleeper', exc_info=e)
+            api.regenerate_sessions()
             response = api.session.send(request)
     return response

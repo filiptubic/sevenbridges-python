@@ -65,6 +65,8 @@ class HttpClient(object):
     returning raw responses, authorization, etc.
     """
 
+    _active_clients = []
+
     def __init__(self, url=None, token=None, oauth_token=None, config=None,
                  timeout=None, proxies=None, error_handlers=None,
                  advance_access=False, no_session=False):
@@ -129,9 +131,13 @@ class HttpClient(object):
                 if handler not in self.error_handlers:
                     self.error_handlers.append(handler)
 
-    def regenerate_session(self):
-        logger.info('Regenerating client session.')
-        self._session = generate_session(proxies=self._session.proxies)
+        HttpClient._active_clients.append(self)
+
+    @staticmethod
+    def regenerate_sessions():
+        logger.info('Regenerating all client sessions.')
+        for client in HttpClient._active_clients:
+            client._session = generate_session(proxies=client._session.proxies)
 
     @property
     def session(self):
