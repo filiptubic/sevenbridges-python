@@ -7,7 +7,6 @@ from requests.exceptions import HTTPError
 # noinspection PyUnresolvedReferences
 from requests.packages.urllib3.exceptions import HTTPError as UrlLibHTTPError
 
-from sevenbridges.errors import SbgError
 from sevenbridges.compat import JSONDecodeError
 from sevenbridges.decorators import retry_on_excs
 
