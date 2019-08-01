@@ -55,6 +55,10 @@ def generate_session(proxies=None):
     :return: requests.Session object.
     """
     session = RequestSession()
+    adapter = requests.adapters.HTTPAdapter(pool_connections=100,
+                                            pool_maxsize=100)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
     session.proxies = proxies
     return session
 
