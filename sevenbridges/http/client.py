@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import platform
+import threading
 from datetime import datetime as dt
 
 import requests
@@ -20,6 +21,15 @@ client_info = {
     'python': platform.python_version(),
     'requests': requests.__version__,
 }
+
+requests_limit = threading.Semaphore(value=100)
+
+
+def throttle(f):
+    def wrapped(*args, **kwargs):
+        with requests_limit:
+            return f(*args, **kwargs)
+    return wrapped
 
 
 class AAHeader:
@@ -199,6 +209,7 @@ class HttpClient(object):
     def _rate_limit(self):
         self._request('GET', url='/rate_limit', append_base=True)
 
+    @throttle
     @check_for_error
     def _request(self, verb, url, headers=None, params=None, data=None,
                  append_base=False, stream=False):
