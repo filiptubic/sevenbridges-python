@@ -8,7 +8,7 @@ from datetime import datetime as dt
 import requests
 
 import sevenbridges
-from sevenbridges.decorators import check_for_error
+from sevenbridges.decorators import check_for_error, throttle
 from sevenbridges.errors import SbgError, URITooLong
 from sevenbridges.config import Config, format_proxies
 from sevenbridges.http.error_handlers import maintenance_sleeper
@@ -21,15 +21,6 @@ client_info = {
     'python': platform.python_version(),
     'requests': requests.__version__,
 }
-
-requests_limit = threading.Semaphore(value=100)
-
-
-def throttle(f):
-    def wrapped(*args, **kwargs):
-        with requests_limit:
-            return f(*args, **kwargs)
-    return wrapped
 
 
 class AAHeader:
@@ -58,15 +49,22 @@ class RequestSession(requests.Session):
         return super(RequestSession, self).send(request, **kwargs)
 
 
-def generate_session(proxies=None):
+def generate_session(pool_connections, pool_maxsize, pool_block, proxies=None):
     """
     Utility method to generate request sessions.
+    :param pool_connections: The number of urllib3 connection pools to
+        cache.
+    :param pool_maxsize: The maximum number of connections to save in the
+        pool.
+    :param pool_block: Whether the connection pool should block for
+        connections.
     :param proxies: Proxies dictionary.
     :return: requests.Session object.
     """
     session = RequestSession()
-    adapter = requests.adapters.HTTPAdapter(pool_connections=100,
-                                            pool_maxsize=100)
+    adapter = requests.adapters.HTTPAdapter(pool_connections=pool_connections,
+                                            pool_maxsize=pool_maxsize,
+                                            pool_block=pool_block)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
     session.proxies = proxies
@@ -109,7 +107,9 @@ class HttpClient(object):
 
     def __init__(self, url=None, token=None, oauth_token=None, config=None,
                  timeout=None, proxies=None, error_handlers=None,
-                 advance_access=False):
+                 advance_access=False, pool_connections=None,
+                 pool_maxsize=None, pool_block=True,
+                 max_parallel_requests=None):
 
         if (url, token, config) == (None, None, None):
             url, token, proxies, advance_access = config_vars(
@@ -136,8 +136,15 @@ class HttpClient(object):
             )
 
         self.url = url.rstrip('/')
-        self._session = generate_session(proxies)
+        self._session = generate_session(pool_connections, pool_maxsize,
+                                         pool_block, proxies=proxies)
         self.timeout = timeout
+        if max_parallel_requests:
+            self._throttle_limit = threading.Semaphore(
+                max_parallel_requests
+            )
+        else:
+            self._throttle_limit = None
         self._limit = None
         self._remaining = None
         self._reset = None
