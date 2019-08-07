@@ -4,7 +4,7 @@ import logging
 import platform
 import threading
 from datetime import datetime as dt
-
+from requests.adapters import DEFAULT_POOLSIZE
 import requests
 
 import sevenbridges
@@ -49,7 +49,8 @@ class RequestSession(requests.Session):
         return super(RequestSession, self).send(request, **kwargs)
 
 
-def generate_session(pool_connections, pool_maxsize, pool_block, proxies=None):
+def generate_session(pool_connections=DEFAULT_POOLSIZE, pool_maxsize=100,
+                     pool_block=True, proxies=None):
     """
     Utility method to generate request sessions.
     :param pool_connections: The number of urllib3 connection pools to
