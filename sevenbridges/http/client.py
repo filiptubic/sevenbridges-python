@@ -49,8 +49,7 @@ class RequestSession(requests.Session):
         return super(RequestSession, self).send(request, **kwargs)
 
 
-def generate_session(pool_connections=DEFAULT_POOLSIZE, pool_maxsize=100,
-                     pool_block=True, proxies=None):
+def generate_session(pool_connections, pool_maxsize, pool_block, proxies=None):
     """
     Utility method to generate request sessions.
     :param pool_connections: The number of urllib3 connection pools to
@@ -137,6 +136,9 @@ class HttpClient(object):
             )
 
         self.url = url.rstrip('/')
+        self.pool_connections = pool_connections
+        self.pool_maxsize = pool_maxsize
+        self.pool_block = pool_block
         self._session = generate_session(pool_connections, pool_maxsize,
                                          pool_block, proxies=proxies)
         self.timeout = timeout
